@@ -1,8 +1,10 @@
 import SocketIoClient from "socket.io-client";
-import { createContext, useEffect, useState } from "react";
+import { createContext, useEffect, useReducer, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Peer from "peerjs";
 import {v4 as UUIDv4} from "uuid";
+import { PeerReducer } from "../Reducers/peerReducer";
+import { addPeerAction } from "../Actions/peerAction";
 
 const WS_Server = "http://localhost:3000"; // Replace with your WebSocket server URL
 
@@ -24,6 +26,9 @@ export const SocketProvider: React.FC<Props> = ({ children }) => {
 
     const [user,setUser] = useState<Peer>(); // new Peer user for WebRTC connections
     const [stream,setStream] = useState<MediaStream | null>(null); // MediaStream for local video/audio
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [peers,dispatch] = useReducer(PeerReducer, {})
 
     const fetchParticipantsList = ({ roomId, participants }: { roomId: string, participants: string[] }) => {
          console.log("Fetched Participants ");
@@ -61,8 +66,28 @@ export const SocketProvider: React.FC<Props> = ({ children }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    useEffect(() => {
+        if(!user || !stream) return;
+
+        socket.on("user-joined", ({peerId}) => {
+            const call = user.call(peerId,stream);
+            console.log("Calling the new peer", peerId);
+            call.on("stream", () => {
+                dispatch(addPeerAction(peerId, stream));
+            });
+        })
+
+        user.on("call", (call) => {
+            console.log("Recieved a call");
+            call.answer(stream);
+        })
+
+        socket.emit("ready");
+
+    }, [user,stream]);
+
     return (
-        <SocketContext.Provider value={{ socket,user,stream }}>
+        <SocketContext.Provider value={{ socket,user,stream, peers }}>
             {children}
         </SocketContext.Provider>
     );
