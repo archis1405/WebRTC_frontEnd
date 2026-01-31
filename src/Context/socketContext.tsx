@@ -22,23 +22,23 @@ interface Props{
 
 export const SocketProvider: React.FC<Props> = ({ children }) => {
 
-    const navigate = useNavigate();
+    const navigate = useNavigate(); // will help to programatically handle navigation
+    
+    // state variable to store the userId 
+    const [user, setUser] = useState<Peer>(); // new peer user
+    const [stream, setStream] = useState<MediaStream>();
 
-    const [user,setUser] = useState<Peer>(); // new Peer user for WebRTC connections
-    const [stream,setStream] = useState<MediaStream | null>(null); // MediaStream for local video/audio
+    const [peers, dispatch] = useReducer(PeerReducer, {}); // peers->state
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [peers,dispatch] = useReducer(PeerReducer, {})
-
-    const fetchParticipantsList = ({ roomId, participants }: { roomId: string, participants: string[] }) => {
-         console.log("Fetched Participants ");
-         console.log(roomId,participants);
+    const fetchParticipantList = ({roomId, participants}: {roomId: string, participants: string[]}) => {
+        console.log("Fetched room participants");
+        console.log(roomId, participants);
     }
 
-    const fetchUserFeed = async() => {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    const fetchUserFeed = async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true});
         setStream(stream);
-    }
+    } 
 
     useEffect(() => {
 
@@ -49,45 +49,46 @@ export const SocketProvider: React.FC<Props> = ({ children }) => {
             path: "/myapp"
         });
 
-        fetchUserFeed();
-
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setUser(newPeer);
 
-        const enterRoom = ({ roomId } : { roomId: string }) => {
-            navigate(`/room/${roomId}`);
+        fetchUserFeed();
+
+        const enterRoom = ({ roomId} : { roomId: string}) => {
+            navigate(`/room/${roomId}`); 
         }
 
+        // we will transfer the user to the room page when we collect an event of room-created from server
         socket.on("room-created", enterRoom);
 
-        socket.on("get-users", fetchParticipantsList);
-
-        
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        socket.on("get-users", fetchParticipantList);
     }, []);
 
     useEffect(() => {
         if(!user || !stream) return;
 
         socket.on("user-joined", ({peerId}) => {
-            const call = user.call(peerId,stream);
+            const call = user.call(peerId, stream);
             console.log("Calling the new peer", peerId);
             call.on("stream", () => {
                 dispatch(addPeerAction(peerId, stream));
-            });
+            })
         })
 
         user.on("call", (call) => {
-            console.log("Recieved a call");
+            // what to do when other peers on the group call you when u joined
+            console.log("receiving a call");
             call.answer(stream);
+            call.on("stream", () => {
+                dispatch(addPeerAction(call.peer, stream));
+            })
         })
 
         socket.emit("ready");
-
-    }, [user,stream]);
+    }, [user, stream])
 
     return (
-        <SocketContext.Provider value={{ socket,user,stream, peers }}>
+        <SocketContext.Provider value={{ socket, user, stream, peers }}>
             {children}
         </SocketContext.Provider>
     );
