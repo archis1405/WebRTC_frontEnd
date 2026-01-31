@@ -23,16 +23,24 @@ export const SocketProvider: React.FC<Props> = ({ children }) => {
     const navigate = useNavigate();
 
     const [user,setUser] = useState<Peer>(); // new Peer user for WebRTC connections
+    const [stream,setStream] = useState<MediaStream | null>(null); // MediaStream for local video/audio
 
     const fetchParticipantsList = ({ roomId, participants }: { roomId: string, participants: string[] }) => {
          console.log("Fetched Participants ");
          console.log(roomId,participants);
     }
 
+    const fetchUserFeed = async() => {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        setStream(stream);
+    }
+
     useEffect(() => {
 
         const userId = UUIDv4();
         const newPeer = new Peer(userId);
+
+        fetchUserFeed();
 
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setUser(newPeer);
@@ -43,14 +51,14 @@ export const SocketProvider: React.FC<Props> = ({ children }) => {
 
         socket.on("room-created", enterRoom);
 
-        socket.on("get-users", () => {
-            console.log("Received get-users event");
-        });
+        socket.on("get-users", fetchParticipantsList);
+
+        
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     return (
-        <SocketContext.Provider value={{ socket,user }}>
+        <SocketContext.Provider value={{ socket,user,stream }}>
             {children}
         </SocketContext.Provider>
     );

@@ -2,7 +2,7 @@ import { Route } from 'react-router-dom'
 import './App.css'
 import { Routes } from 'react-router-dom' 
 import Home from './pages/Home'
-import Room from './components/Room'
+import Room from './pages/Room'
  
 function App() {
 

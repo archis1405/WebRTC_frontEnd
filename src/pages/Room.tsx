@@ -1,29 +1,26 @@
 import { useContext, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { SocketContext } from "../Context/socketContext";
+import UserFeedPlayer from "../components/UserFeedPlayer";
 
 const Room: React.FC = () => {
 
     const {id} = useParams<{id: string}>();
-    const { socket,user } = useContext(SocketContext);
-
-    const fetchParticipantsList = ({ roomId, participants }: { roomId: string, participants: string[] }) => {
-         console.log("Fetched Participants ");
-         console.log(roomId,participants);
-    }
+    const { socket,user,stream } = useContext(SocketContext);
 
     useEffect(() => {
         if(user){
             console.log("New user joined the room:", id);
             socket.emit("joined-room", {roomId: id , peerId: user._id} );
 
-            socket.on("get-users", fetchParticipantsList);
+            
         }
     }, [id,user,socket]);
 
     return (
         <div>
             Room Component {id}
+            <UserFeedPlayer stream={stream} />
         </div>
     );  
 }
